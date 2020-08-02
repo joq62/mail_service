@@ -116,7 +116,7 @@ init([]) ->
 %%      
 %% --------------------------------------------------------------------
 
-handle_call({connect_imap,UserId,PassWd}, From, State) ->
+handle_call({connect_imap,UserId,PassWd}, _From, State) ->
     #state{seq_num=SeqNum}=State,
     application:start(crypto),
     application:start(asn1),
@@ -130,7 +130,7 @@ handle_call({connect_imap,UserId,PassWd}, From, State) ->
     Reply = ok,
     {reply, Reply, New_state};
 
-handle_call({connect_smtp,UserId,PassWd}, From, State) ->
+handle_call({connect_smtp,UserId,PassWd}, _From, State) ->
     ok=application:start(crypto),
     ok=application:start(asn1),
     ok=application:start(public_key),
@@ -139,8 +139,8 @@ handle_call({connect_smtp,UserId,PassWd}, From, State) ->
     recv(Socket),
     send(Socket, "HELO localhost"),
     send(Socket, "AUTH LOGIN"),
-    Re_UId = send(Socket, binary_to_list(base64:encode(UserId))), 
-    RE_Passw = send(Socket, binary_to_list(base64:encode(PassWd))),           
+    _Re_UId = send(Socket, binary_to_list(base64:encode(UserId))), 
+    _RE_Passw = send(Socket, binary_to_list(base64:encode(PassWd))),           
     New_state=State#state{uid_smtp=UserId,pwd_smtp=PassWd,socket_smtp=Socket},
     Reply = ok,
     {reply, Reply, New_state};
@@ -158,7 +158,7 @@ handle_call({connect_smtp,UserId,PassWd}, From, State) ->
 %% Returns: {reply, Reply, State}     
 %%      
 %% --------------------------------------------------------------------
-handle_call({send_mail,Subject,Msg,Receiver,Sender}, From, State) ->
+handle_call({send_mail,Subject,Msg,Receiver,Sender}, _From, State) ->
     #state{socket_smtp=Socket}=State,
     send(Socket, "MAIL FROM:<" ++ Sender ++ ">"),
     send(Socket, "RCPT TO:<" ++ Receiver ++ ">"),
@@ -184,12 +184,12 @@ handle_call({send_mail,Subject,Msg,Receiver,Sender}, From, State) ->
 %%      
 %% --------------------------------------------------------------------
 
-handle_call({get_mail}, From, State) ->
+handle_call({get_mail}, _From, State) ->
     #state{socket_imap=Socket,seq_num=SeqNumAcc}=State,
 
     BoxCmd="SELECT " ++ "INBOX",
     {ok,BoxStr}=get_imap(Socket,SeqNumAcc,BoxCmd),
-    [BoxResult|TBox]=BoxStr,
+    [BoxResult|_]=BoxStr,
     BoxR=[SeqNumAcc,"OK","[READ-WRITE]","INBOX","selected.","(Success)"],
     BoxResult = BoxR,
 
@@ -200,7 +200,7 @@ handle_call({get_mail}, From, State) ->
     SearchR=[SeqNumAcc1,"OK","SEARCH","completed","(Success)"],
     [SearchResult|TSearch]=SearchStr,
     SearchResult=SearchR,
-    [SearchList|TSearch2]=TSearch,
+    [SearchList|_]=TSearch,
     Len = calc_len(SearchList),
     if 
 	Len > 2 -> 
@@ -220,7 +220,7 @@ handle_call({get_mail}, From, State) ->
 	    TextCmd="FETCH " ++ Id ++ " " ++ "BODY[text]",
 	    {ok,TextStr}=get_imap(Socket,SeqNumAcc3,TextCmd),    
 	    TextR=[SeqNumAcc3,"OK","Success"],
-	    [TextResult|TText]=TextStr,
+	    [TextResult|_]=TextStr,
 	    TextResult=TextR,
 	    SeqAcc=add_seq_num(SeqNumAcc3,1);
 	Len == 2 ->
@@ -245,7 +245,7 @@ handle_call({get_mail}, From, State) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
 
-handle_call({disconnect_smtp}, From, State) ->
+handle_call({disconnect_smtp}, _From, State) ->
     #state{socket_smtp=Socket}=State,
     send(Socket, "QUIT"),
     Reply= ssl:close(Socket),
@@ -255,17 +255,17 @@ handle_call({disconnect_smtp}, From, State) ->
     application:stop(ssl),   
     {reply, Reply,State};
 
-handle_call({disconnect_imap}, From, State) ->
+handle_call({disconnect_imap}, _From, State) ->
     #state{socket_imap=Socket,seq_num=SeqNum}=State, 
-    Send_R= send(Socket,SeqNum ++" "++ "LOGOUT"),
-    CloseR= ssl:close(Socket),
+    _Send_R= send(Socket,SeqNum ++" "++ "LOGOUT"),
+    _CloseR= ssl:close(Socket),
     application:stop(crypto),
     application:stop(asn1),
     application:stop(public_key),
     application:stop(ssl),   
     Reply=ok,
     {reply, Reply,State};
-handle_call({stop}, From, State)->
+handle_call({stop}, _From, State)->
     terminate("Stuga.erl initiated an exit",State),
      {reply, ok,State}.
 
@@ -276,7 +276,7 @@ handle_call({stop}, From, State)->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
-handle_cast(Msg, State) ->
+handle_cast(_Msg, State) ->
     {noreply, State}.
 
 %% --------------------------------------------------------------------
@@ -286,7 +286,7 @@ handle_cast(Msg, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
-handle_info(Info, State) ->
+handle_info(_Info, State) ->
     {noreply, State}.
 
 %% --------------------------------------------------------------------
@@ -294,7 +294,7 @@ handle_info(Info, State) ->
 %% Description: Shutdown the server
 %% Returns: any (ignored by gen_server)
 %% --------------------------------------------------------------------
-terminate(Reason, State) ->
+terminate(_Reason, _State) ->
     ok.
 
 %% --------------------------------------------------------------------
@@ -302,15 +302,15 @@ terminate(Reason, State) ->
 %% Purpose: Convert process state when code is changed
 %% Returns: {ok, NewState}
 %% --------------------------------------------------------------------
-code_change(OldVsn, State, Extra) ->
+code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 %% --------------------------------------------------------------------
 %%% Internal functions
 %% -------------------------------------------------------------------
 
-get(mailId,[A,CMD|PAR])->    
-    [Id|Rest]=PAR,
+get(mailId,[_,_|PAR])->    
+    [Id|_]=PAR,
     Id.
 
 calc_len([])->
@@ -366,8 +366,8 @@ myparser(S,Acc)->
     [H|T]=S,
     Acc1 = [string:tokens(H," ")|Acc],
     myparser(T,Acc1).
-seq_num(SeqNum)->
-    "a" ++ integer_to_list(SeqNum).
+%seq_num(SeqNum)->
+ %   "a" ++ integer_to_list(SeqNum).
 
 add_seq_num(SeqNum,Int)->
     [N1]=string:tokens(SeqNum,"a"),
@@ -384,11 +384,11 @@ get_imap(Socket,SeqNum,Cmd,Acc,retreive)->
     Z=myparser(ImapMsg),
  %   io:format("ImapMsg parserd ==== ~p~n",[Z]),
     Acc1=lists:append(Z,Acc),
-    [Result|T]=Z,
+    [Result|_]=Z,
     [SeqNumR|T1]=Result,
     case SeqNumR == SeqNum of
 	true->
-	    [Ok|T2]=T1,
+	    [Ok|_]=T1,
 	    case Ok =="OK" of
 		true->
 		    R=done;
@@ -400,7 +400,7 @@ get_imap(Socket,SeqNum,Cmd,Acc,retreive)->
     end,
     get_imap(Socket,SeqNum,Cmd,Acc1,R);
 	
-get_imap(Socket,SeqNum,Cmd,Acc,done)->		    
+get_imap(_Socket,_SeqNum,_Cmd,Acc,done)->		    
     Acc.
 
 extract(THeader)->
@@ -412,11 +412,11 @@ extract(THeader)->
 extract([],"From:")->
     {error, invalid_sender_address};
 extract([HeaderElement|TailElement],"From:")->
-    [H|T]=HeaderElement,
+    [H|_]=HeaderElement,
     case H of
 	"From:"->
-	    [Sender|SenderTail]=string:tokens(lists:last(HeaderElement),"< >"),
-	    R=Sender;
+	    [Sender|_SenderTail]=string:tokens(lists:last(HeaderElement),"< >"),
+	    Sender;
 	_ ->
 	    Sender=extract(TailElement,"From:")
     end,
@@ -425,7 +425,7 @@ extract([HeaderElement|TailElement],"From:")->
 extract([],"Subject:")->
     {error, invalid_subject_string};
 extract([HeaderElement|TailElement],"Subject:")->
-    [H|T]=HeaderElement,
+    [H|_]=HeaderElement,
     case H of
 	"Subject:"->
 	    [_,Cmd|Parameters]=HeaderElement;	    

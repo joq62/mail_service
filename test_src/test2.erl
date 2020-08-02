@@ -40,7 +40,7 @@ start()->
     init:stop(),
     ok.
 t1_test()->
-    {ok,_}=mail_service:start(),
+    ok=application:start(mail_service),
     ok.
 
 t2_test()->		 

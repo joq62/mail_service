@@ -11,5 +11,8 @@ clean:
 	rm -rf */*~ *.beam ebin/*.beam *~
 test:
 	rm -rf */*~ *.beam ebin/*.beam *~;
+	rm -rf */*~ test_ebin/* test_src/*.beam test_src/*~;
+	cp src/*.app ebin;
 	erlc -o ./ebin src/*.erl;
-	erl -pa ./ebin -s test2 start
+	erlc -o test_ebin test_src/*.erl;
+	erl -pa ebin -pa test_ebin -s test2 start
