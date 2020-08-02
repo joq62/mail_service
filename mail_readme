@@ -1,0 +1,12 @@
+revsions log
+2012-12-22: created joq
+
+*************************************************
+mail program is an erlang application but event handler is not implemented.
+
+To start the mail server run 
+
+1> application:start(mail).
+2> mail:connect("erlang.arduino@gmail.com","raptor2012").
+3> mail:send_mail("Subject:Test message ","Test message.\nrow1.\nrow2", "joakim.leche@gmail.com").
+
