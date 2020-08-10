@@ -10,9 +10,11 @@ all:
 clean:
 	rm -rf */*~ *.beam ebin/*.beam *~
 test:
-	rm -rf */*~ *.beam ebin/*.beam *~;
+	rm -rf include */*~ *.beam ebin/*.beam *~;
 	rm -rf */*~ test_ebin/* test_src/*.beam test_src/*~;
+#	include
+	git clone https://github.com/joq62/include.git;
 	cp src/*.app ebin;
-	erlc -o ./ebin src/*.erl;
-	erlc -o test_ebin test_src/*.erl;
-	erl -pa ebin -pa test_ebin -s test2 start
+	erlc -I include -o  ebin src/*.erl;
+	erlc -I include -o test_ebin test_src/*.erl;
+	erl -pa ebin -pa test_ebin -s test3 start

@@ -41,19 +41,26 @@
 %% --------------------------------------------------------------------
 %% Include files
 %% --------------------------------------------------------------------
-
+-include("mail.hrl").
 
 %% --------------------------------------------------------------------
 %% Macros
 %% --------------------------------------------------------------------
 -define(TIMEOUT, 50000).
 -define(IMAPDELAY, 60000).
+-define(HB_Interval,10*1000).
+
 %% --------------------------------------------------------------------
 %% External exports
--export([start/0,stop/0,connect_send/2,connect_get/2,disconnect_get/0,disconnect_send/0 ,get_mail/0,send_mail/4,test/0]).
+-export([add_mail/3,delete_mail/3,get_mail_list/0,read_mail/2,
+	 connect_send/2,connect_get/2,
+	 connect_send/0,connect_get/0,
+	 hb/0,
+	 disconnect_get/0,disconnect_send/0 ,get_mail/0,send_mail/4,test/0]).
 
 %% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
+-export([start/0,stop/0,
+	 init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -record(state,
 	{
@@ -64,7 +71,9 @@
 	  socket_imap,
 	  socket_smtp,
 	  seq_num="a0",
-	  history=nohistory}).
+	  history=nohistory,
+	  mail_list
+	}).
 
 %% ====================================================================
 %% External functions
@@ -74,6 +83,11 @@
 start()-> gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 stop()-> gen_server:call(?MODULE, {stop},infinity).
 
+
+connect_get() ->
+    gen_server:call(?MODULE,{connect_imap,?UserId,?PassWd},infinity).
+connect_send() ->
+    gen_server:call(?MODULE,{connect_smtp,?UserId,?PassWd},infinity).
 connect_get(UserId,PassWd) ->
     gen_server:call(?MODULE,{connect_imap,UserId,PassWd},infinity).
 connect_send(UserId,PassWd) ->
@@ -86,9 +100,17 @@ get_mail()->
     gen_server:call(?MODULE,{get_mail},infinity).
 send_mail(Subject,Msg,Receiver,Sender) ->
     gen_server:call(?MODULE,{send_mail,Subject,Msg,Receiver,Sender},infinity).    
+add_mail(From,Cmd,[M,F,A])->
+    gen_server:call(?MODULE,{add_mail,From,Cmd,[M,F,A]},infinity).
+delete_mail(From,Cmd,[M,F,A])->
+    gen_server:call(?MODULE,{delete_mail,From,Cmd,[M,F,A]},infinity).
+get_mail_list()->
+        gen_server:call(?MODULE,{get_mail_list},infinity).
 test() ->
     gen_server:call(?MODULE,{test},infinity).
 
+hb()->
+    gen_server:cast(?MODULE,{hb}).
 
 
 %% ====================================================================
@@ -104,7 +126,8 @@ test() ->
 %%          {stop, Reason}
 %% --------------------------------------------------------------------
 init([]) ->
-    {ok, #state{}}.
+    spawn(fun()->hb_local() end),
+    {ok, #state{mail_list=[]}}.
 
 %% --------------------------------------------------------------------
 %% Function: connect 
@@ -115,6 +138,20 @@ init([]) ->
 %% Returns: {reply, Reply, State}     
 %%      
 %% --------------------------------------------------------------------
+handle_call({add_mail,From,Cmd,[M,F,A]}, _From, State) ->
+    NewMailList=[{From,Cmd,[M,F,A]}|State#state.mail_list],
+    NewState=State#state{mail_list=NewMailList},
+    {reply, ok, NewState};
+
+handle_call({delete_mail,From,Cmd,[M,F,A]}, _From, State) ->
+    NewMailList=lists:delete({From,Cmd,[M,F,A]},State#state.mail_list),
+    NewState=State#state{mail_list=NewMailList},
+    {reply, ok, NewState};
+    
+handle_call({get_mail_list}, _From, State) ->
+    Reply=State#state.mail_list,
+    {reply, Reply, State};
+
 
 handle_call({connect_imap,UserId,PassWd}, _From, State) ->
     #state{seq_num=SeqNum}=State,
@@ -131,10 +168,10 @@ handle_call({connect_imap,UserId,PassWd}, _From, State) ->
     {reply, Reply, New_state};
 
 handle_call({connect_smtp,UserId,PassWd}, _From, State) ->
-    ok=application:start(crypto),
-    ok=application:start(asn1),
-    ok=application:start(public_key),
-    ok=application:start(ssl),
+    application:start(crypto),
+    application:start(asn1),
+    application:start(public_key),
+    application:start(ssl),
     {ok, Socket} = ssl:connect("smtp.gmail.com", 465, [{active, false}], ?TIMEOUT),
     recv(Socket),
     send(Socket, "HELO localhost"),
@@ -276,6 +313,10 @@ handle_call({stop}, _From, State)->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
+handle_cast(hb, State) ->
+    spawn(fun()->hb_local() end),
+    {noreply, State};
+
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
@@ -308,6 +349,29 @@ code_change(_OldVsn, State, _Extra) ->
 %% --------------------------------------------------------------------
 %%% Internal functions
 %% -------------------------------------------------------------------
+hb_local()->
+    timer:sleep(?HB_Interval),
+    UserId="service.varmdo@gmail.com",
+    PassWd="Festum01",
+    MailList= read_mail(UserId,PassWd),
+    [mail_service:add_mail(From,Cmd,[M,F,A])||{From,Cmd,[M,F,A]}<-MailList],
+    
+    ok.   
+
+
+read_mail(UserId,PassWd)->
+    ok=mail_service:connect_get(UserId,PassWd),
+    {R,From,Cmd,Arg}=mail_service:get_mail(),
+    MailList=rec_mail({R,From,Cmd,Arg},[]),
+    ok=mail_service:disconnect_get(),  
+    MailList.
+
+rec_mail({no_new_mail,_From,_Cmd,_Arg},MailList)->
+    MailList;
+rec_mail({new_mail,From,Cmd,Arg},Acc) ->
+    NewAcc=[{From,Cmd,Arg}|Acc],
+    {R,From1,Cmd1,Arg1}=mail_service:get_mail(),
+    rec_mail({R,From1,Cmd1,Arg1},NewAcc).
 
 get(mailId,[_,_|PAR])->    
     [Id|_]=PAR,
