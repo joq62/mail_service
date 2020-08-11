@@ -98,6 +98,7 @@ disconnect_send() ->
     gen_server:call(?MODULE,{disconnect_smtp},infinity).
 get_mail()->
     gen_server:call(?MODULE,{get_mail},infinity).
+
 send_mail(Subject,Msg,Receiver,Sender) ->
     gen_server:call(?MODULE,{send_mail,Subject,Msg,Receiver,Sender},infinity).    
 add_mail(From,Cmd,[M,F,A])->
@@ -354,8 +355,8 @@ hb_local()->
     UserId="service.varmdo@gmail.com",
     PassWd="Festum01",
     MailList= read_mail(UserId,PassWd),
-    [mail_service:add_mail(From,Cmd,[M,F,A])||{From,Cmd,[M,F,A]}<-MailList],
-    
+    R=[mail_service:add_mail(From,Cmd,[M,F,A])||{From,Cmd,[M,F,A]}<-MailList],
+    io:format("~p~n",[{?MODULE,R}]),
     ok.   
 
 
