@@ -315,6 +315,7 @@ handle_call({stop}, _From, State)->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
 handle_cast(hb, State) ->
+    io:format("hb_local ~p~n",[{?MODULE,?LINE}]),
     spawn(fun()->hb_local() end),
     {noreply, State};
 
@@ -358,7 +359,7 @@ hb_local()->
     MailList= read_mail(UserId,PassWd),
     R=[mail_service:add_mail(From,Cmd,[M,F,A])||{From,Cmd,[M,F,A]}<-MailList],
     io:format("~p~n",[{?MODULE,R}]),
-    rpc:call(node(),mail_service,hb,[]),
+    rpc:cast(node(),mail_service,hb,[]),
     ok.   
 
 
