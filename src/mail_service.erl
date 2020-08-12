@@ -358,7 +358,7 @@ hb_local()->
     MailList= read_mail(UserId,PassWd),
     R=[mail_service:add_mail(From,Cmd,[M,F,A])||{From,Cmd,[M,F,A]}<-MailList],
     io:format("~p~n",[{?MODULE,R}]),
-    rpc:cast(node(),mail_service,hb,[]),
+    rpc:call(node(),mail_service,hb,[]),
     ok.   
 
 
