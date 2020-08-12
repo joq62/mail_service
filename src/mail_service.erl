@@ -351,6 +351,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %% -------------------------------------------------------------------
 hb_local()->
+    io:format("hb_local ~p~n",[{?MODULE,?LINE}]),
     timer:sleep(?HB_Interval),
     UserId="service.varmdo@gmail.com",
     PassWd="Festum01",
