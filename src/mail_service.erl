@@ -48,14 +48,14 @@
 %% --------------------------------------------------------------------
 -define(TIMEOUT, 50000).
 -define(IMAPDELAY, 60000).
--define(HB_Interval,10*1000).
+-define(HB_Interval,5*1000).
 
 %% --------------------------------------------------------------------
 %% External exports
 -export([add_mail/3,delete_mail/3,get_mail_list/0,read_mail/2,
 	 connect_send/2,connect_get/2,
 	 connect_send/0,connect_get/0,
-	 hb/0,
+	 hartbeat/0,
 	 disconnect_get/0,disconnect_send/0 ,get_mail/0,send_mail/4,test/0]).
 
 %% gen_server callbacks
@@ -110,8 +110,8 @@ get_mail_list()->
 test() ->
     gen_server:call(?MODULE,{test},infinity).
 
-hb()->
-    gen_server:cast(?MODULE,{hb}).
+hartbeat()->
+    gen_server:cast(?MODULE,{hartbeat}).
 
 
 %% ====================================================================
@@ -127,7 +127,7 @@ hb()->
 %%          {stop, Reason}
 %% --------------------------------------------------------------------
 init([]) ->
-    spawn(fun()->hb_local() end),
+    spawn(fun()->mail_service:hartbeat() end),
     {ok, #state{mail_list=[]}}.
 
 %% --------------------------------------------------------------------
@@ -314,8 +314,8 @@ handle_call({stop}, _From, State)->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
-handle_cast(hb, State) ->
-    io:format("hb_local ~p~n",[{?MODULE,?LINE}]),
+handle_cast({hartbeat}, State) ->
+    io:format("hartbeat ~p~n",[{?MODULE,?LINE}]),
     spawn(fun()->hb_local() end),
     {noreply, State};
 
@@ -359,7 +359,7 @@ hb_local()->
     MailList= read_mail(UserId,PassWd),
     R=[mail_service:add_mail(From,Cmd,[M,F,A])||{From,Cmd,[M,F,A]}<-MailList],
     io:format("~p~n",[{?MODULE,R}]),
-    rpc:cast(node(),mail_service,hb,[]),
+    ok=rpc:call(node(),mail_service,hartbeat,[]),
     ok.   
 
 
