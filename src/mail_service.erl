@@ -360,8 +360,14 @@ hb_local()->
     UserId="service.varmdo@gmail.com",
     PassWd="Festum01",
     MailList= read_mail(UserId,PassWd),
-    R=[mail_service:add_mail(From,Cmd,[M,F,A])||{From,Cmd,[M,F,A]}<-MailList],
-    io:format("~p~n",[{?MODULE,R}]),
+    case [mail_service:add_mail(From,Cmd,[M,F,A])||{From,Cmd,[M,F,A]}<-MailList] of
+	[]->
+	    ok;
+	[ok]->
+	    ok;
+	R->
+	    io:format("~p~n",[{?MODULE,R}])
+    end,
     ok=rpc:call(node(),mail_service,hartbeat,[]),
     ok.   
 
