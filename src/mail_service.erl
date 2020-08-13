@@ -315,11 +315,12 @@ handle_call({stop}, _From, State)->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
 handle_cast({hartbeat}, State) ->
-    io:format("hartbeat ~p~n",[{?MODULE,?LINE}]),
+  %  io:format("hartbeat ~p~n",[{?MODULE,?LINE}]),
     spawn(fun()->hb_local() end),
     {noreply, State};
 
-handle_cast(_Msg, State) ->
+handle_cast(Msg, State) ->
+    io:format("unmatched cast ~p~n",[{?MODULE,?LINE, Msg}]),
     {noreply, State}.
 
 %% --------------------------------------------------------------------
@@ -329,7 +330,9 @@ handle_cast(_Msg, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
-handle_info(_Info, State) ->
+handle_info(Info, State) ->
+    io:format("unmatched info ~p~n",[{?MODULE,?LINE,Info}]),
+    
     {noreply, State}.
 
 %% --------------------------------------------------------------------
@@ -352,7 +355,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %% -------------------------------------------------------------------
 hb_local()->
-    io:format("hb_local ~p~n",[{?MODULE,?LINE}]),
+   % io:format("hb_local ~p~n",[{?MODULE,?LINE}]),
     timer:sleep(?HB_Interval),
     UserId="service.varmdo@gmail.com",
     PassWd="Festum01",
