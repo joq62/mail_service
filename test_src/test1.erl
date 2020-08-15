@@ -37,7 +37,7 @@ t1_test()->
 t2_test()->		 
     Subject="Test mail",
     Msg="Test mail from mail_test.erl\n Best Regards",
-    Receiver="joakim.leche@gmail.com",
+    Receiver="service.varmdo@gmail.com",
     Sender="service.varmdo@gmail.com",
     UserId="service.varmdo@gmail.com",
     PassWd="Festum01",

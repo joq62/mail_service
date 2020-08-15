@@ -17,4 +17,4 @@ test:
 	cp src/*.app ebin;
 	erlc -I include -o  ebin src/*.erl;
 	erlc -I include -o test_ebin test_src/*.erl;
-	erl -pa ebin -pa test_ebin -s test1 start
+	erl -pa ebin -pa test_ebin -s test3 start

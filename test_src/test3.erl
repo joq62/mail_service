@@ -28,7 +28,7 @@
 %% --------------------------------------------------------------------
 start()->
     ok=t1_test(),
-    ok=t4_test(),
+    ok=t3_test(),
     init:stop(),
     ok.
 t1_test()->
@@ -54,8 +54,8 @@ t3_test()->
     timer:sleep(12*1000),
               %  [{"service.varmdo@gmail.com","mfa",["module1","fun1","arg1"]},{"service.varmdo@gmail.com","mfa",["module2","fun2","arg2"]}]
     MailList1=mail_service:get_mail_list(),
-    ?assertMatch([{"service.varmdo@gmail.com","mfa",["module1","fun1","arg1"]},{"service.varmdo@gmail.com","mfa",["module2","fun2","arg2"]}],MailList1),
-    [mail_service:delete_mail(From,Cmd,Args)||{From,Cmd,Args}<-MailList1],
+    ?assertMatch([{"service.varmdo@gmail.com",["mfa","module1","fun1","arg1"]},{"service.varmdo@gmail.com",["mfa","module2","fun2","arg2"]}],MailList1),
+    [mail_service:delete_mail(From,SubjectInfo)||{From,SubjectInfo}<-MailList1],
     ?assertEqual([],mail_service:get_mail_list()),
     ok.
 
@@ -65,17 +65,17 @@ t4_test()->
    % UserId="service.varmdo@gmail.com",
    % PassWd="Festum01",
 
-    Subject1="mfa erlang date []",
+    Subject1="date",
     Msg1="Glurk",
     ?assertEqual(ok,mail_service:connect_send()),
     ?assertMatch({ok,_},mail_service:send_mail(Subject1,Msg1,Receiver,Sender)),
     ?assertEqual(ok,mail_service:disconnect_send()), 
     timer:sleep(12*1000),
-    [{From,"mfa",[MStr,FStr,_Arg]}]=mail_service:get_mail_list(),
-    {Y,M,D}=rpc:call(node(),list_to_atom(MStr),list_to_atom(FStr),[]),
-    Subject2="{"++integer_to_list(Y)++","++integer_to_list(M)++","++integer_to_list(D)++"}",
+    [{From,SubjectInfo}]=mail_service:get_mail_list(),
+  %  {Y,M,D}=rpc:call(node(),list_to_atom(MStr),list_to_atom(FStr),[]),
+   % Subject2="{"++integer_to_list(Y)++","++integer_to_list(M)++","++integer_to_list(D)++"}",
     ?assertEqual(ok,mail_service:connect_send()),
-    ?assertMatch({ok,_},mail_service:send_mail(Subject2,Msg1,Receiver,Sender)),
+   % ?assertMatch({ok,_},mail_service:send_mail(Subject2,Msg1,Receiver,Sender)),
     ?assertEqual(ok,mail_service:disconnect_send()), 
     ok.
  

@@ -52,7 +52,7 @@
 
 %% --------------------------------------------------------------------
 %% External exports
--export([add_mail/3,delete_mail/3,get_mail_list/0,read_mail/2,
+-export([add_mail/2,delete_mail/2,get_mail_list/0,read_mail/0,
 	 connect_send/2,connect_get/2,
 	 connect_send/0,connect_get/0,
 	 hartbeat/0,
@@ -101,10 +101,10 @@ get_mail()->
 
 send_mail(Subject,Msg,Receiver,Sender) ->
     gen_server:call(?MODULE,{send_mail,Subject,Msg,Receiver,Sender},infinity).    
-add_mail(From,Cmd,[M,F,A])->
-    gen_server:call(?MODULE,{add_mail,From,Cmd,[M,F,A]},infinity).
-delete_mail(From,Cmd,[M,F,A])->
-    gen_server:call(?MODULE,{delete_mail,From,Cmd,[M,F,A]},infinity).
+add_mail(From,SubjectInfo)->
+    gen_server:call(?MODULE,{add_mail,From,SubjectInfo},infinity).
+delete_mail(From,SubjectInfo)->
+    gen_server:call(?MODULE,{delete_mail,From,SubjectInfo},infinity).
 get_mail_list()->
         gen_server:call(?MODULE,{get_mail_list},infinity).
 test() ->
@@ -139,13 +139,13 @@ init([]) ->
 %% Returns: {reply, Reply, State}     
 %%      
 %% --------------------------------------------------------------------
-handle_call({add_mail,From,Cmd,[M,F,A]}, _From, State) ->
-    NewMailList=[{From,Cmd,[M,F,A]}|State#state.mail_list],
+handle_call({add_mail,From,SubjectInfo}, _From, State) ->
+    NewMailList=[{From,SubjectInfo}|State#state.mail_list],
     NewState=State#state{mail_list=NewMailList},
     {reply, ok, NewState};
 
-handle_call({delete_mail,From,Cmd,[M,F,A]}, _From, State) ->
-    NewMailList=lists:delete({From,Cmd,[M,F,A]},State#state.mail_list),
+handle_call({delete_mail,From,SubjectInfo}, _From, State) ->
+    NewMailList=lists:delete({From,SubjectInfo},State#state.mail_list),
     NewState=State#state{mail_list=NewMailList},
     {reply, ok, NewState};
     
@@ -252,7 +252,7 @@ handle_call({get_mail}, _From, State) ->
 	    HeaderR=[SeqNumAcc2,"OK","Success"],
 	    [HeaderResult|THeader]=HeaderStr,
 	    HeaderResult=HeaderR,
-	   {Sender,Cmd,Parameters}=extract(THeader),
+	   {Sender,SubjectInfo}=extract(THeader),
 
 	    SeqNumAcc3=add_seq_num(SeqNumAcc2,1),    
 	    TextCmd="FETCH " ++ Id ++ " " ++ "BODY[text]",
@@ -265,11 +265,10 @@ handle_call({get_mail}, _From, State) ->
 	    SeqAcc=add_seq_num(SeqNumAcc1,1),
 	    NewMail = no_new_mail,
 	    Sender=null,
-	    Cmd=no_cmd,
-	    Parameters=""
+	    SubjectInfo=""
     end,
     NewState=State#state{seq_num=SeqAcc},
-    Reply = {NewMail,Sender, Cmd,Parameters},
+    Reply = {NewMail,Sender, SubjectInfo},
     {reply, Reply,NewState};    
 
 %% --------------------------------------------------------------------
@@ -357,10 +356,8 @@ code_change(_OldVsn, State, _Extra) ->
 hb_local()->
    % io:format("hb_local ~p~n",[{?MODULE,?LINE}]),
     timer:sleep(?HB_Interval),
-    UserId="service.varmdo@gmail.com",
-    PassWd="Festum01",
-    MailList= read_mail(UserId,PassWd),
-    case [mail_service:add_mail(From,Cmd,[M,F,A])||{From,Cmd,[M,F,A]}<-MailList] of
+    MailList= read_mail(),
+    case [mail_service:add_mail(From,SubjectInfo)||{From,SubjectInfo}<-MailList] of
 	[]->
 	    ok;
 	[ok]->
@@ -372,19 +369,19 @@ hb_local()->
     ok.   
 
 
-read_mail(UserId,PassWd)->
-    ok=mail_service:connect_get(UserId,PassWd),
-    {R,From,Cmd,Arg}=mail_service:get_mail(),
-    MailList=rec_mail({R,From,Cmd,Arg},[]),
+read_mail()->
+    ok=mail_service:connect_get(),
+    {R,From,SubjectInfo}=mail_service:get_mail(),
+    MailList=rec_mail({R,From,SubjectInfo},[]),
     ok=mail_service:disconnect_get(),  
     MailList.
 
-rec_mail({no_new_mail,_From,_Cmd,_Arg},MailList)->
+rec_mail({no_new_mail,_From,_SubjectInfo},MailList)->
     MailList;
-rec_mail({new_mail,From,Cmd,Arg},Acc) ->
-    NewAcc=[{From,Cmd,Arg}|Acc],
-    {R,From1,Cmd1,Arg1}=mail_service:get_mail(),
-    rec_mail({R,From1,Cmd1,Arg1},NewAcc).
+rec_mail({new_mail,From,SubjectInfo},Acc) ->
+    NewAcc=[{From,SubjectInfo}|Acc],
+    {R,From1,SubjectInfo1}=mail_service:get_mail(),
+    rec_mail({R,From1,SubjectInfo1},NewAcc).
 
 get(mailId,[_,_|PAR])->    
     [Id|_]=PAR,
@@ -482,8 +479,8 @@ get_imap(_Socket,_SeqNum,_Cmd,Acc,done)->
 
 extract(THeader)->
     Sender=extract(THeader,"From:"),
-    {Cmd,Parameters}=extract(THeader,"Subject:"),
-    {Sender,Cmd,Parameters}.
+    SubjectInfo=extract(THeader,"Subject:"),
+    {Sender,SubjectInfo}.
 
 
 extract([],"From:")->
@@ -503,13 +500,15 @@ extract([],"Subject:")->
     {error, invalid_subject_string};
 extract([HeaderElement|TailElement],"Subject:")->
     [H|_]=HeaderElement,
-    case H of
-	"Subject:"->
-	    [_,Cmd|Parameters]=HeaderElement;	    
-	_ ->
-	    {Cmd,Parameters}=extract(TailElement,"Subject:")
-    end,
-    {Cmd,Parameters}.
+    Reply=case H of
+	      "Subject:"->
+	    [_|SubjectInfo]=HeaderElement,	 
+		  SubjectInfo;   
+	      _ ->
+		  extract(TailElement,"Subject:")
+	  end,
+    Reply.
+  %  {Cmd,Parameters}.
 
 
 
